@@ -24,6 +24,7 @@ from services.remediation_service import RemediationService
 from services.execution_service import ExecutionService
 from services.verification_service import VerificationService
 from services.incident_history_service import IncidentHistoryService
+from services.servicenow_notification_service import ServiceNowNotificationService
 
 # ── Existing human-readable logger (UNCHANGED) ────────────────────────────────
 from utils.logger import (
@@ -67,6 +68,7 @@ class DBFixAgent:
         self.execution_service   = ExecutionService()
         self.verification_service = VerificationService()
         self.history_service     = IncidentHistoryService()
+        self.sn_notify_service   = ServiceNowNotificationService()
 
     # ─────────────────────────────────────────────────────────────────────────
     def execute(self, request: RCARequest, request_id: Optional[str] = None) -> dict:
@@ -336,6 +338,40 @@ class DBFixAgent:
             metrics.stop_timer("incident_history")
             record_timing(ctx, "Incident History", time.perf_counter() - t0)
 
+            # ══════════════════════════════════════════════════════════════════
+            # STEP 10 — Notify ServiceNow Incident
+            # ══════════════════════════════════════════════════════════════════
+            current_step = "SN_NOTIFICATION"
+            log_step_header(10, "NOTIFY SERVICENOW INCIDENT",
+                            "Send remediation result back to the originating ServiceNow incident")
+            metrics.start_timer("sn_notification")
+            sn_notification = self.sn_notify_service.notify(
+                ticket_id=request.ticket_id,
+                application=request.application,
+                database=database["name"],
+                issues=issues,
+                actions=actions,
+                execution=execution,
+                verification=verification,
+                explanation=explanation,
+                total_elapsed_ms=total_elapsed_ms,
+                ctx=ctx,
+            )
+            metrics.stop_timer("sn_notification")
+            record_timing(ctx, "SN Notification", time.perf_counter() - t0)
+            if sn_notification.get("notified"):
+                log_info(ctx, "ServiceNow incident updated",
+                         step="SN_NOTIFY",
+                         sys_id=sn_notification.get("sys_id"),
+                         state=sn_notification.get("state"),
+                         elapsed_ms=sn_notification.get("elapsed_ms"))
+            else:
+                logger.warning(
+                    f"[svc=DB-FIX-AGENT] [ticket={request.ticket_id}] "
+                    f"[step=SN_NOTIFY] ServiceNow notification failed (non-fatal): "
+                    f"{sn_notification.get('error')}"
+                )
+
             # ── Finalise metrics ──────────────────────────────────────────────
             total_elapsed_s  = time.perf_counter() - total_start
             total_elapsed_ms = total_elapsed_s * 1000
@@ -392,6 +428,8 @@ class DBFixAgent:
                 "timeline":       timeline_list,
                 # Explainability
                 "explanation":    explanation,
+                # ServiceNow notification
+                "sn_notification": sn_notification,
             }
             tokens.record_output("response", response_payload)
             token_dict = tokens.to_dict()

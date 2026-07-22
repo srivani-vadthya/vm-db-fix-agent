@@ -27,6 +27,7 @@ _TIMELINE_STEPS = [
     ("EXECUTION",            "Execution"),
     ("VERIFICATION",         "Verification"),
     ("INCIDENT_HISTORY",     "Incident History"),
+    ("SN_NOTIFICATION",      "SN Notification"),
 ]
 
 

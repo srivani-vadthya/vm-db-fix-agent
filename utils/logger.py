@@ -178,6 +178,7 @@ def log_execution_timeline(ctx: dict, total_elapsed: float):
         "Execution",
         "Verification",
         "Incident History",
+        "SN Notification",
     ]
     for label in labels:
         elapsed = timeline.get(label)
