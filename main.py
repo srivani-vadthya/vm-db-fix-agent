@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from api.routes import router
+from telemetry.middleware import RequestIDMiddleware
 
 
 app = FastAPI(
@@ -8,6 +9,7 @@ app = FastAPI(
     version="1.0"
 )
 
+app.add_middleware(RequestIDMiddleware)
 app.include_router(router)
 
 

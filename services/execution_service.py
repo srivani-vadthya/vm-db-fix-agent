@@ -36,13 +36,13 @@ class ExecutionService:
                 )
                 result = "SUCCESS"
             else:
-                result = "SKIPPED — no handler"
+                result = "SKIPPED"
 
             elapsed = time.perf_counter() - t0
             if ctx:
                 log_action_execution(ctx, index=index, total=total,
                                      action=label, result=result, elapsed=elapsed)
 
-            results.append({"issue": issue, "result": result})
+            results.append({"issue": issue, "result": result, "executed": result == "SUCCESS"})
 
         return results
